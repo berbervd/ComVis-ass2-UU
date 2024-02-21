@@ -1,0 +1,3 @@
+[submodule "ComVis"]
+	path = ComVis
+	url = https://github.com/Jensvanderweide/ComVis.git
