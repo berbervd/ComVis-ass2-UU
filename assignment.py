@@ -4,6 +4,7 @@ import numpy as np
 
 block_size = 1.0
 
+# test
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
