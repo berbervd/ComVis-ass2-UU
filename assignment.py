@@ -7,16 +7,7 @@ block_size = 1.0
 # test
 
 # ook even testne
-# deze ff als test
-def generate_grid2(width, depth):
-    # Generates the floor grid locations
-    # You don't need to edit this function
-    data, colors = [], []
-    for x in range(width):
-        for z in range(depth):
-            data.append([x*block_size - width/2, -block_size, z*block_size - depth/2])
-            colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0, 0, 0])
-    return data, colors
+
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
