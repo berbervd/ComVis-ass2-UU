@@ -7,7 +7,7 @@ Step 1: create background model for the frames.
 First: 'simple way'>> averaging the frames. 
 Later try GMM approach?
 
-The background images are now saved and stored in their respective volders. These are the onse by the 'averaging method'
+The background images are now saved and stored in their respective folders. These are the ones by the 'averaging method'
 """
 
 # so this function creates for each camera a background image using the average of the frames per camera 
@@ -51,7 +51,5 @@ def background_model(base_path='data', save_image=True): # if true then save the
             print(f"Background image saved for {cam_dir}.")
 
 # Om even te testen of het werkt kan je zo de funtie aanroepen. Maar hoef ipc maar 1x tenzij we de methode veranderen naar bijv die GMM
-background_model('data', True) # of true then save the output 
-
-
-
+#background_model('data', True) # of true then save the output 
+ 
