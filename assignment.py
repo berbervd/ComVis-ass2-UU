@@ -6,6 +6,9 @@ block_size = 1.0
 
 # test
 
+# ook even testne
+
+
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
