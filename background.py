@@ -140,10 +140,10 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
             print(f"Failed to load background image for {cam_dir}")
             continue
 
-        # Convert the background image to HSV
+        # Convert  background im to HSV
         background_hsv = cv2.cvtColor(background_img, cv2.COLOR_BGR2HSV)
 
-        # Open the video file
+        # Open video
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             print(f"Failed to open video for {cam_dir}")
@@ -154,14 +154,15 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
             if not ret:
                 break
 
-            # Convert the current frame to HSV
+            #  current frame to HSV
             frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-            # Calculate the absolute difference between the current frame and the background
+            # abs difference between current frame & background
             diff = cv2.absdiff(frame_hsv, background_hsv)
 
             """
             threshold aanpassen voor meer accurate background subt
+            >> methode voor?
             """
 
             # Apply thresholding to identify foreground
@@ -169,7 +170,8 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
 
             _, fg_mask = cv2.threshold(diff, thresh, 255, cv2.THRESH_BINARY)
 
-            # Optionally, apply morphological operations to clean up the foreground mask
+            # Optionally >> apply morphological operations to clean up the foreground mask
+            # moet nog ff gefinetuned worden 
             kernel = np.ones((3,3), np.uint8)
             fg_mask = cv2.erode(fg_mask, kernel, iterations=1)
             fg_mask = cv2.dilate(fg_mask, kernel, iterations=1)
@@ -183,7 +185,7 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
     cv2.destroyAllWindows()
 
 background_subtraction('data')
- 
+
 
 
 """
