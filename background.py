@@ -68,7 +68,7 @@ def background_image(base_path='data', save_image=True): # if true then save the
         cap.release()
 
         if save_image:
-            save_path = os.path.join(base_path, cam_dir, f'background_{cam_dir}.jpg')
+            save_path = os.path.join(base_path, cam_dir, f'background_images/background_{cam_dir}.jpg')
             cv2.imwrite(save_path, background_model)
             print(f"Background image saved for {cam_dir}.")
         
@@ -108,7 +108,7 @@ def gmm_background_image(base_path='data', save_image=True):
         background_model = backSub.getBackgroundImage() if hasattr(backSub, 'getBackgroundImage') else frame
 
         if save_image:
-            save_path = os.path.join(base_path, cam_dir, f'backgroundGMM_{cam_dir}.jpg')
+            save_path = os.path.join(base_path, cam_dir, f'background_images/backgroundGMM_{cam_dir}.jpg')
             cv2.imwrite(save_path, background_model)
             print(f"Background image saved for {cam_dir}.")
 
@@ -131,7 +131,7 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
 
     for cam_dir in camera_dirs:
         # backgroundGMM_ of background_ (afhankelijk of we de GMM of average background image gebruikine. Heb nog weinig vershcil gezien)
-        background_path = os.path.join(base_path, cam_dir, f'backgroundGMM_{cam_dir}.jpg') # eerst background_image voor de background images per camera.
+        background_path = os.path.join(base_path, cam_dir, f'background_images/backgroundGMM_{cam_dir}.jpg') # eerst background_image voor de background images per camera.
         video_path = os.path.join(base_path, cam_dir, 'video.avi')
 
         # Load the background image
