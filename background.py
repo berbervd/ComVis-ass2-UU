@@ -22,11 +22,9 @@ See also Voxel reconstruction point 2 below.
 
 
 """
-Step 1: create background model for the frames. 
-First: 'simple way'>> averaging the frames. 
-Later try GMM approach?
-
-The background images are now saved and stored in their respective folders. These are the ones by the 'averaging method'
+This script does the background subtraction. 
+First we created the background image bu averaging the frames per video,
+however we decided to do the background subtraction via the gmm_background_image which uses openCV's createBackgroundSubtractorMOG2 function (for the choice task on automatic thresholding)
 """
 
 
@@ -70,11 +68,9 @@ def background_image(base_path='data', save_image=True): # if true then save the
         if save_image:
             save_path = os.path.join(base_path, cam_dir, f'background_images/background_{cam_dir}.jpg')
             cv2.imwrite(save_path, background_model)
-            print(f"Background image saved for {cam_dir}.")
+            
         
     return background_model
-        
-
 # Om even te testen of het werkt kan je zo de funtie aanroepen. Maar hoef ipc maar 1x tenzij we de methode veranderen naar bijv die GMM
 #background_image('data', False) # of true then save the output 
  
@@ -84,38 +80,34 @@ def gmm_background_image(base_path='data', save_image=True):
         video_path = os.path.join(base_path, cam_dir, 'background.avi')
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            print(f"Error: Could not open video in {cam_dir}.")
+            print(f"Error: video not visible for {cam_dir}.")
             continue
 
-        # Create a background subtractor object with history to cover the entire video
-        backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=True)
+        # GMM way for background sub: 
+        # for dynamic backgrounds better a lower value 100-300? for history : 500 deault
+        # var threshold: (16 default): lower more sensitive (detecting more shadows), higher: less sensitive
+        backSub = cv2.createBackgroundSubtractorMOG2(history=100, varThreshold=16, detectShadows=True)
 
+
+        # training the background model
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-
-            # Update the background model
+            # Do background sub for each frame
             fg_mask = backSub.apply(frame)
 
         # Release the video capture object
         cap.release()
 
-        # The background model should have learned the background by now
-        # Let's get the background image from the model
-        # For some OpenCV versions, you might directly use backSub.getBackgroundImage()
-        # But in some versions, you need to grab the background from the last frame
         background_model = backSub.getBackgroundImage() if hasattr(backSub, 'getBackgroundImage') else frame
 
         if save_image:
             save_path = os.path.join(base_path, cam_dir, f'background_images/backgroundGMM_{cam_dir}.jpg')
             cv2.imwrite(save_path, background_model)
-            print(f"Background image saved for {cam_dir}.")
+            
 
-#gmm_background_image('data', save_image=True)
-
-
-
+gmm_background_image('data', save_image=True)
 
 """
 Background subtraction for the 4 cams
@@ -125,8 +117,104 @@ Regarding the background subtraction results: these are decent but could be a bi
 The noise in the ceiling, along the edges of the carpet and walls (mostly cam 2), and because of the chessboard that should not have been put there (cam 3) is fine.
 
 """
+ 
 
-def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
+
+def background_subtraction(base_path='data'):
+    camera_dirs = ['cam1', 'cam2', 'cam3', 'cam4']  # Camera folders
+
+    for cam_dir in camera_dirs:
+        background_path = os.path.join(base_path, cam_dir, f'background_images/backgroundGMM_{cam_dir}.jpg')
+        video_path = os.path.join(base_path, cam_dir, 'video.avi')
+
+        # Load the background image
+        background_img = cv2.imread(background_path)
+        if background_img is None:
+            print(f"Failed for {cam_dir}")
+            continue
+
+        """
+        Niet zeker of blur ook bij background immage moet worden toegepast?
+        """
+        # Gaussian blur >> the background image
+        gaus_blur_background_img = cv2.GaussianBlur(background_img, (5, 5), 0)
+        # IMG to HSV
+        background_hsv = cv2.cvtColor(gaus_blur_background_img, cv2.COLOR_BGR2HSV)
+
+        # Open video
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Failed to open video for {cam_dir}")
+            continue
+        
+        # Go through each frame 
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Gaussian blur >> reduces noise (applied to the whole frame. could try applying after the frames are splitted?)
+            gaus_blur = cv2.GaussianBlur(frame, (5, 5), 0)
+
+            # Convert blurred current frame to HSV
+            frame_hsv = cv2.cvtColor(gaus_blur, cv2.COLOR_BGR2HSV)
+
+            # Split frames
+            frame_h, frame_s, frame_v = cv2.split(frame_hsv)
+            background_h, background_s, background_v = cv2.split(background_hsv)
+
+            # abs difference between current frame & background per channel
+            diff_h = cv2.absdiff(frame_h, background_h)
+            diff_s = cv2.absdiff(frame_s, background_s)
+            diff_v = cv2.absdiff(frame_v, background_v)
+
+            # Threshold > per channel 
+            #thresh = 30  # SINGLE FRAME
+            # Apply thresholding for each channel
+            thresh_h = 40  
+            thresh_s = 40  
+            thresh_v = 50 
+
+            # Thresholding for difference for foreground mask >> per HSV
+            # kijken of threshold werklt of misschien adaptive ? threshold VS adaptiveThreshold
+            _, fg_mask_h = cv2.threshold(diff_h, thresh_h, 255, cv2.THRESH_BINARY)
+            _, fg_mask_s = cv2.threshold(diff_s, thresh_s, 255, cv2.THRESH_BINARY)
+            _, fg_mask_v = cv2.threshold(diff_v, thresh_v, 255, cv2.THRESH_BINARY)
+
+            # Combine channels: bitwise_and en bitwise_or
+            fg_mask_combined = cv2.bitwise_or(fg_mask_h, fg_mask_s)
+            fg_mask_combined = cv2.bitwise_or(fg_mask_combined, fg_mask_v)
+
+
+            ### POST DETECTION 
+            # Dit doet meer cleanen van de achterground ruis dan van het persoontje?
+            # Optionally >> apply morphological operations to "clean" foreground mask
+            # moet nog ff gefinetuned worden ?!?1
+            kernel = np.ones((3,3), np.uint8)
+            # op gecombineerde
+            fg_mask_combined = cv2.erode(fg_mask_combined, kernel, iterations=1)
+            fg_mask_combined = cv2.dilate(fg_mask_combined, kernel, iterations=1)
+ 
+            # Als je deze in de imshow stopt ipv fg_mask_combined zie je de echte foto (kunnen we beter de gaten zien)
+            frame_real = cv2.bitwise_and(frame, frame, mask=fg_mask_combined)
+
+            # foreground mask
+            # fg_mask_combined voor zwart wit, frame_real voor de echte foto foreground
+            cv2.imshow(f'Foreground for {cam_dir}', fg_mask_combined) 
+            if cv2.waitKey(0) & 0xFF == ord('q'):  # q klikken om door te gaan
+                break
+
+        cap.release()
+    cv2.destroyAllWindows()
+
+background_subtraction('data')
+
+
+"""
+Hieronder is background sub for a single frame
+Dus niet voor de grames gesplit in H S V
+"""
+def background_subtraction_OUD(base_path='data'): # (backgroun_model, base_path?)
     camera_dirs = ['cam1', 'cam2', 'cam3', 'cam4']  # Camera folders
 
     for cam_dir in camera_dirs:
@@ -184,35 +272,4 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
         cap.release()
     cv2.destroyAllWindows()
 
-background_subtraction('data')
-
-
-
-"""
-To improve your background subtraction based on the provided images and the description of your task, you may consider the following suggestions:
-
-Gaussian Mixture Model (GMM):
-
-Replace the averaging method with a GMM to handle variations in the background more robustly. OpenCV provides the BackgroundSubtractorMOG2 class, which implements such a model.
-Dynamic Thresholding:
-
-Instead of using a static threshold, consider using methods like Otsu's thresholding or adaptive thresholding which can automatically adjust the threshold based on the image characteristics.
-Channel-wise Thresholding:
-
-Perform thresholding on each channel (Hue, Saturation, and Value) separately and then combine the results to determine foreground pixels. This can help in handling the color variations in the images more effectively.
-Morphological Operations:
-
-Use morphological operations like erosion and dilation more strategically to close holes and separate connected objects. The choice of kernel size and the number of iterations can significantly affect the results.
-Noise Reduction:
-
-Apply filters to reduce noise before performing subtraction. A median or Gaussian blur can help in reducing the effects of sensor noise or compression artifacts.
-Segmentation Techniques:
-
-Consider using advanced segmentation techniques like Graph Cuts or Watershed to refine the edges of the foreground objects and separate them from the background more cleanly.
-Post-processing:
-
-After applying background subtraction and thresholding, post-processing steps such as contour detection can help identify and fill holes within the foreground objects.
-Parameter Optimization:
-
-Implement a function that can automatically optimize the parameters by comparing the algorithm’s output to manual segmentation or by minimizing the noise in the binary mask.
-"""
+#background_subtraction_OUD('data')
