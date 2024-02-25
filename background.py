@@ -28,41 +28,7 @@ Later try GMM approach?
 
 The background images are now saved and stored in their respective folders. These are the ones by the 'averaging method'
 """
-def gmm_background_image(base_path='data', save_image=True):
-    camera_dirs = ['cam1', 'cam2', 'cam3', 'cam4']  # Camera folders
-    for cam_dir in camera_dirs:
-        video_path = os.path.join(base_path, cam_dir, 'background.avi')
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print(f"Error: Could not open video in {cam_dir}.")
-            continue
 
-        # Create a background subtractor object with history to cover the entire video
-        backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=True)
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # Update the background model
-            fg_mask = backSub.apply(frame)
-
-        # Release the video capture object
-        cap.release()
-
-        # The background model should have learned the background by now
-        # Let's get the background image from the model
-        # For some OpenCV versions, you might directly use backSub.getBackgroundImage()
-        # But in some versions, you need to grab the background from the last frame
-        background_model = backSub.getBackgroundImage() if hasattr(backSub, 'getBackgroundImage') else frame
-
-        if save_image:
-            save_path = os.path.join(base_path, cam_dir, f'backgroundGMM_{cam_dir}.jpg')
-            cv2.imwrite(save_path, background_model)
-            print(f"Background image saved for {cam_dir}.")
-
-#gmm_background_image('data', save_image=True)
 
 
 # so this function creates for each camera a background image using the average of the frames per camera 
@@ -102,7 +68,7 @@ def background_image(base_path='data', save_image=True): # if true then save the
         cap.release()
 
         if save_image:
-            save_path = os.path.join(base_path, cam_dir, f'background_{cam_dir}.jpg')
+            save_path = os.path.join(base_path, cam_dir, f'background_images/background_{cam_dir}.jpg')
             cv2.imwrite(save_path, background_model)
             print(f"Background image saved for {cam_dir}.")
         
@@ -112,7 +78,41 @@ def background_image(base_path='data', save_image=True): # if true then save the
 # Om even te testen of het werkt kan je zo de funtie aanroepen. Maar hoef ipc maar 1x tenzij we de methode veranderen naar bijv die GMM
 #background_image('data', False) # of true then save the output 
  
+def gmm_background_image(base_path='data', save_image=True):
+    camera_dirs = ['cam1', 'cam2', 'cam3', 'cam4']  # Camera folders
+    for cam_dir in camera_dirs:
+        video_path = os.path.join(base_path, cam_dir, 'background.avi')
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Error: Could not open video in {cam_dir}.")
+            continue
 
+        # Create a background subtractor object with history to cover the entire video
+        backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=True)
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Update the background model
+            fg_mask = backSub.apply(frame)
+
+        # Release the video capture object
+        cap.release()
+
+        # The background model should have learned the background by now
+        # Let's get the background image from the model
+        # For some OpenCV versions, you might directly use backSub.getBackgroundImage()
+        # But in some versions, you need to grab the background from the last frame
+        background_model = backSub.getBackgroundImage() if hasattr(backSub, 'getBackgroundImage') else frame
+
+        if save_image:
+            save_path = os.path.join(base_path, cam_dir, f'background_images/backgroundGMM_{cam_dir}.jpg')
+            cv2.imwrite(save_path, background_model)
+            print(f"Background image saved for {cam_dir}.")
+
+#gmm_background_image('data', save_image=True)
 
 
 
@@ -131,7 +131,7 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
 
     for cam_dir in camera_dirs:
         # backgroundGMM_ of background_ (afhankelijk of we de GMM of average background image gebruikine. Heb nog weinig vershcil gezien)
-        background_path = os.path.join(base_path, cam_dir, f'backgroundGMM_{cam_dir}.jpg') # eerst background_image voor de background images per camera.
+        background_path = os.path.join(base_path, cam_dir, f'background_images/backgroundGMM_{cam_dir}.jpg') # eerst background_image voor de background images per camera.
         video_path = os.path.join(base_path, cam_dir, 'video.avi')
 
         # Load the background image
@@ -140,10 +140,10 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
             print(f"Failed to load background image for {cam_dir}")
             continue
 
-        # Convert the background image to HSV
+        # Convert  background im to HSV
         background_hsv = cv2.cvtColor(background_img, cv2.COLOR_BGR2HSV)
 
-        # Open the video file
+        # Open video
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             print(f"Failed to open video for {cam_dir}")
@@ -154,14 +154,15 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
             if not ret:
                 break
 
-            # Convert the current frame to HSV
+            #  current frame to HSV
             frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-            # Calculate the absolute difference between the current frame and the background
+            # abs difference between current frame & background
             diff = cv2.absdiff(frame_hsv, background_hsv)
 
             """
             threshold aanpassen voor meer accurate background subt
+            >> methode voor?
             """
 
             # Apply thresholding to identify foreground
@@ -169,7 +170,8 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
 
             _, fg_mask = cv2.threshold(diff, thresh, 255, cv2.THRESH_BINARY)
 
-            # Optionally, apply morphological operations to clean up the foreground mask
+            # Optionally >> apply morphological operations to clean up the foreground mask
+            # moet nog ff gefinetuned worden 
             kernel = np.ones((3,3), np.uint8)
             fg_mask = cv2.erode(fg_mask, kernel, iterations=1)
             fg_mask = cv2.dilate(fg_mask, kernel, iterations=1)
@@ -183,7 +185,7 @@ def background_subtraction(base_path='data'): # (backgroun_model, base_path?)
     cv2.destroyAllWindows()
 
 background_subtraction('data')
- 
+
 
 
 """
