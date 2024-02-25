@@ -75,9 +75,9 @@ class ChessboardCalibration:
         cv.waitKey(1)  
 
 
-    def draw_chessboard_corners(self, img, corner_points):
+    def draw_chessboard_corners(self, img, corner_points, fname):
         cv.drawChessboardCorners(img, (self.corn_vert, self.corn_horiz), corner_points, True)
-        cv.imshow('Image', img)
+        cv.imshow(fname, img)
         cv.waitKey(0)
         cv.destroyAllWindows()
 
@@ -85,11 +85,11 @@ class ChessboardCalibration:
     def interpolate_corners(self, corner_points):
         topleft, topright, bottomright, bottomleft = self.click_coordinates
         all_points = []
-        for i in range(self.corn_vert):
-            left = np.add(np.multiply(np.subtract(bottomleft, topleft), i / (self.corn_vert - 1)), topleft)
-            right = np.add(np.multiply(np.subtract(bottomright, topright), i / (self.corn_vert - 1)), topright)
-            for j in range(self.corn_horiz):
-                point = np.add(np.multiply(np.subtract(right, left), j / (self.corn_horiz - 1)), left)
+        for i in range(self.corn_horiz):
+            left = np.add(np.multiply(np.subtract(bottomleft, topleft), i / (self.corn_horiz - 1)), topleft)
+            right = np.add(np.multiply(np.subtract(bottomright, topright), i / (self.corn_horiz - 1)), topright)
+            for j in range(self.corn_vert):
+                point = np.add(np.multiply(np.subtract(right, left), j / (self.corn_vert - 1)), left)
                 all_points.append(point)
         return np.array(all_points, dtype=np.float32).reshape(-1, 1, 2)
 
@@ -122,7 +122,10 @@ class ChessboardCalibration:
                 corners2 = cv.cornerSubPix(self.gray, corners, (11, 11), (-1, -1), self.criteria)
                 self.training_points['objpoints'].append(self.objp)
                 self.training_points['imgpoints'].append(corners2)
-                self.draw_chessboard_corners(self.img, corners2)
+                self.draw_chessboard_corners(self.img, corners2, fname)
+
+                if save_corners: 
+                    self.image_extrinsics_corners = corners2
                 
             # set corners manually 
             else:
@@ -180,46 +183,57 @@ class ChessboardCalibration:
         print('')
     
     def obtain_extrinsics(self, extrinsics_image_directory): 
-        """
-        obtain the extrinsics, given a image of a checkerboard from a perspective, 
-        it uses the intrinsics (cmaera matrix and dist_coeff) from the intrinsics saved earlier 
+        # Make sure we've already obtained the intrinsic parameters
+        if self.intrinsics is None:
+            raise ValueError("Intrinsic parameters not available. Run obtain_intrinsics first.")
         
-        """
+        # Load the test image
+        self.img = cv.imread(extrinsics_image_directory)
+        if self.img is None:
+            raise FileNotFoundError("Test image not found.")
         
-        self.images_extrinsics = glob.glob(f'{extrinsics_image_directory}/*.png')
-        self.process_images(save_corners=True, intrinsics=False)
+        # Convert to grayscale
+        gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
         
-        object_points = self.training_points['objpoints']
-        image_points = self.training_points['imgpoints']
+        # Find the chessboard corners in the test image
+        ret, corners = cv.findChessboardCorners(gray, (self.corn_vert, self.corn_horiz), None)
         
-        # Ensure object points and image points are in the correct format
-        if not all(isinstance(op, np.ndarray) and op.shape[-1] == 3 for op in object_points):
-            raise ValueError("object_points are not in the correct shape or type")
-        if not all(isinstance(ip, np.ndarray) and ip.shape[-1] == 2 for ip in image_points):
-            raise ValueError("image_points are not in the correct shape or type")
+        if ret:
+            corners = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), self.criteria)
+            
+        if not ret:
+            cv.namedWindow('Image')
+            cv.setMouseCallback('Image', self.click_coords)
+            
+            cv.imshow('Image', self.img)
+            cv.waitKey(0)
+            
+            if len(self.click_coordinates) == 4:
+                corners = self.interpolate_corners(self.click_coordinates)
+                self.draw_chessboard_corners(self.img, corners, 'extrinsics im')
+            else:
+                print("Not enough points selected.")
+        
+        
+        self.image_extrinsics_corners = corners
 
-        camera_matrix, dist_coeffs= self.intrinsics
+        # Use the intrinsic parameters
+        camera_matrix, dist_coeffs = self.intrinsics
+
+        # Solve for rotation and translation vectors
+        _, rvecs, tvecs, _ = cv.solvePnPRansac(self.objp, corners, camera_matrix, dist_coeffs)
+
+        # Save the extrinsic parameters
+        self.extrinsics = rvecs, tvecs
+
+        return rvecs, tvecs
         
-        # Convert object points and image points to NumPy arrays of type float32 if they are not already
-        object_points = [np.array(op, dtype=np.float32) for op in object_points]
-        image_points = [np.array(ip, dtype=np.float32) for ip in image_points]
         
-        # Flatten the list of arrays to single array
-        object_points = np.concatenate(object_points).reshape(-1, 1, 3)
-        image_points = np.concatenate(image_points).reshape(-1, 1, 2)
-        
-        _, rotation_vector, translation_vector, _ = cv.solvePnPRansac(
-            object_points, image_points, camera_matrix, dist_coeffs)
-        
-        self.extrinsics = rotation_vector, translation_vector 
-        print('rotation vector: ', rotation_vector)
-        print('')
-        print('translation vector: ', translation_vector)
         
         
     def draw_axes(self, img, corners, rotation_vector, translation_vector, camera_matrix, dist_coeffs, axis_length=3):
         # Define the 3D points for the axes (X, Y, Z)
-        axis = np.float32([[axis_length, 0, 0], [0, axis_length, 0], [0, 0, -axis_length]]).reshape(-1, 3)
+        axis = np.float32([[axis_length, 0, 0], [0, axis_length, 0], [0, 0, axis_length]]).reshape(-1, 3)
 
         # Project the 3D points to the image plane
         axis_points, _ = cv.projectPoints(axis, rotation_vector, translation_vector, camera_matrix, dist_coeffs)
@@ -229,9 +243,9 @@ class ChessboardCalibration:
 
         # Draw the axes lines on the image. The first corner of the chessboard is used as the origin.
         origin = tuple(corners[0].ravel().astype(int))
-        img = cv.line(img, origin, tuple(axis_points[0]), (255, 0, 0), 3)  # X-Axis in red
-        img = cv.line(img, origin, tuple(axis_points[1]), (0, 255, 0), 3)  # Y-Axis in green
-        img = cv.line(img, origin, tuple(axis_points[2]), (0, 0, 255), 3)  # Z-Axis in blue
+        img = cv.line(img, origin, tuple(axis_points[0]), (0, 255, 0), 2)  # X-Axis in red
+        img = cv.line(img, origin, tuple(axis_points[1]), (255, 0, 0), 2)  # Y-Axis in green
+        img = cv.line(img, origin, tuple(axis_points[2]), (0, 0, 255), 2)  # Z-Axis in blue
         return img
 
     
@@ -249,11 +263,11 @@ class ChessboardCalibration:
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         
         corners = self.image_extrinsics_corners
-
+        
         # Draw the axes on the image
         camera_matrix, dist_coeffs = self.intrinsics
         rotation_vector, translation_vector = self.extrinsics
-        img_with_axes = self.draw_axes(img, corners, rotation_vector, translation_vector, camera_matrix, dist_coeffs, axis_length=0.1)
+        img_with_axes = self.draw_axes(img, corners, rotation_vector, translation_vector, camera_matrix, dist_coeffs, axis_length=3)
 
         # Show the image
         cv.imshow('Image with Axes', img_with_axes)
@@ -296,15 +310,20 @@ def show_vid_and_save_frames(camera_number, save_frames=False, max_frames=5):
         if key == ord('q'):
             break
         
-        # check how many frames already saved
-        frames_taken = len(os.listdir(save_dir))
         
-        # if allowed, save a frame by pressing s 
+
         if save_frames and key == ord('s'): 
-            frame_number = int(cap_cam1.get(cv.CAP_PROP_POS_FRAMES))
-            filename = os.path.join(save_dir, f"camera{camera_number}_frame_{frame_number}.png")
-            cv.imwrite(filename, frame)
-            print(f"Frame {frame_number} from camera {camera_number} saved as {filename}.")
+            # Convert to grayscale
+            gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        
+            # if allowed, save a frame by pressing s
+            ret, corners = cv.findChessboardCorners(gray, (8, 6), None)
+            
+            if ret: 
+                frame_number = int(cap_cam1.get(cv.CAP_PROP_POS_FRAMES))
+                filename = os.path.join(save_dir, f"camera{camera_number}_frame_{frame_number}.png")
+                cv.imwrite(filename, frame)
+                print(f"Frame {frame_number} from camera {camera_number} saved as {filename}.")
             
     cap_cam1.release()
     cv.destroyAllWindows()
@@ -318,5 +337,7 @@ if __name__ == '__main__':
     # calibration for camera 1
     cc = ChessboardCalibration(corn_vert=8, corn_horiz=6)
     cc.obtain_intrinsics('data/cam1/saved_frames')
-    cc.obtain_extrinsics('data/cam1/saved_frames_extrinsics')
-    cc.show_image_with_axes('data/cam1/saved_frames_extrinsics/camera1_frame_33.png')
+    
+    extr_im = 'data/cam1/saved_frames_extrinsics/camera1_frame_33.png'
+    cc.obtain_extrinsics(extr_im)
+    cc.show_image_with_axes(extr_im)
