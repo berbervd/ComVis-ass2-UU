@@ -21,7 +21,8 @@ class ChessboardCalibration:
         self.training_points = {"objpoints": [], "imgpoints": []} 
         self.image_shape = None
         self.gray = None 
-        self.intrinsics = None 
+        self.intrinsics = None
+        self.extrinsics = None 
         self.images_intrinsics = None 
         self.images_extrinsics = None 
         self.image_extrinsics_corners = None 
@@ -273,6 +274,17 @@ class ChessboardCalibration:
         cv.imshow('Image with Axes', img_with_axes)
         cv.waitKey(0)
         cv.destroyAllWindows()
+        
+    def save_data(self, camera_number): 
+        
+        calibration_data = {
+            'intrinsics': self.intrinsics,
+            'extrinsics': self.extrinsics
+        }
+
+        with open(f'data/cam{camera_number}/calibration_data_camera{camera_number}.pkl', 'wb') as file:
+             pickle.dump(calibration_data, file)
+
 
 
 
@@ -332,12 +344,36 @@ def show_vid_and_save_frames(camera_number, save_frames=False, max_frames=5):
 if __name__ == '__main__':
     
     # UNCOMMENT THIS TO OBTAIN NEW FRAMES FOR CAMERA 1 
-    # show_vid_and_save_frames(1, save_frames=True)
+    # show_vid_and_save_frames(4, save_frames=True)
 
-    # calibration for camera 1
+    #  calibration for camera 1
     cc = ChessboardCalibration(corn_vert=8, corn_horiz=6)
     cc.obtain_intrinsics('data/cam1/saved_frames')
-    
     extr_im = 'data/cam1/saved_frames_extrinsics/camera1_frame_33.png'
     cc.obtain_extrinsics(extr_im)
     cc.show_image_with_axes(extr_im)
+    cc.save_data(1)
+    
+    # calibration for camera 2
+    cc = ChessboardCalibration(corn_vert=8, corn_horiz=6)
+    cc.obtain_intrinsics('data/cam2/saved_frames')
+    extr_im = 'data/cam2/saved_frames_extrinsics/camera2_frame_24.png'
+    cc.obtain_extrinsics(extr_im)
+    cc.show_image_with_axes(extr_im)
+    cc.save_data(2)
+
+    # calibration for camera 3
+    cc = ChessboardCalibration(corn_vert=8, corn_horiz=6)
+    cc.obtain_intrinsics('data/cam3/saved_frames')
+    extr_im = 'data/cam3/saved_frames_extrinsics/camera3_frame_31.png'
+    cc.obtain_extrinsics(extr_im)
+    cc.show_image_with_axes(extr_im)
+    cc.save_data(3)
+    
+    # calibration for camera 4
+    cc = ChessboardCalibration(corn_vert=8, corn_horiz=6)
+    cc.obtain_intrinsics('data/cam4/saved_frames')
+    extr_im = 'data/cam4/saved_frames_extrinsics/camera4_frame_48.png'
+    cc.obtain_extrinsics(extr_im)
+    cc.show_image_with_axes(extr_im)
+    cc.save_data(4)
