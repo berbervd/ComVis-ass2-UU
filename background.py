@@ -200,7 +200,7 @@ def background_subtraction(base_path='data'):
 
             # foreground mask
             # fg_mask_combined voor zwart wit, frame_real voor de echte foto foreground
-            cv2.imshow(f'Foreground for {cam_dir}', fg_mask_combined) 
+            cv2.imshow(f'Foreground for {cam_dir}', frame_real) 
             if cv2.waitKey(0) & 0xFF == ord('q'):  # q klikken om door te gaan
                 break
 
