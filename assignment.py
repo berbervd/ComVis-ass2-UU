@@ -37,6 +37,8 @@ def set_voxel_positions(width, height, depth):
                     colors.append([x / width, z / depth, y / height])
     return data, colors
 
+
+ 
 """
 Retrieving the camera positions
 from teams hint 
