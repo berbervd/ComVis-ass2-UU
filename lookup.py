@@ -1,4 +1,40 @@
+import numpy as np 
+import cv2 as cv 
 # HIER MOET DENK IK FF ZO'N LOOKUP TABLE KOMEN
+def create_voxel_volume(width, height, depth): 
+       
+       """
+       Creates a voxel volume of a certain size (wxhxd)
+       outputs the array representation of this volume 
+       """
+       
+       x = np.arange(0, width)
+       y = np.arange(0, height)
+       z = np.arange(0, depth)
+       
+       X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+       
+       voxel_volume = np.vstack([X.ravel(), Y.ravel(), Z.ravel()]).T
+       
+       return voxel_volume 
+
+def project_points_to_image(points, rvec, tvec, intrinsics_matrix):
+       
+       """
+       Given some points, projects to 2D points. Should be able to input the voxel volume to test this 
+       """
+       
+       # make it to array if needed 
+       points = np.asarray(points, dtype=np.float32) 
+       
+       # project points 
+       points_2d, _ = cv.projectPoints(points, rvec, tvec, intrinsics_matrix, distCoeffs=None)
+       
+       # reshape 
+       points_2d = points_2d.reshape(-1, 2)  # Shape (N, 2)
+       
+       return points_2d
+
 
 
 """
