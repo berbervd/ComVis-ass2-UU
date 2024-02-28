@@ -4,8 +4,11 @@ import numpy as np
 import pickle
 import cv2
 from tqdm import trange
+from tqdm import tqdm
 
 block_size = 1.0 
+
+cols = [0, 0, 0, 0]
 
 def get_calib_data(filename):
     with open(filename, 'rb') as f:
@@ -14,17 +17,6 @@ def get_calib_data(filename):
 
 #xx = get_calib_data('data/cam1/calibration_data_camera1.pkl')
 #print(xx)
-
-
-def generate_grid(width, depth):
-    # Generates the floor grid locations
-    # You don't need to edit this function
-    data, colors = [], []
-    for x in range(width):
-        for z in range(depth):
-            data.append([x*block_size - width/2, -block_size, z*block_size - depth/2])
-            colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0, 0, 0])
-    return data, colors
  
 def init_cam_params(cam_no):
     # Load the calibration data from a pickle file
@@ -39,7 +31,41 @@ def init_cam_params(cam_no):
     fg = cv2.imread(f'data/cam{cam_no}/foreground_image.jpg')
     return mtx, dist, rvec, tvec, fg
 
- 
+def load_foreground_image(cam_no):
+    fg_path = f'data/cam{cam_no}/foreground_image.jpg'
+    fg_image = cv2.imread(fg_path, cv2.IMREAD_GRAYSCALE)
+    return fg_image
+
+"""
+zoiet snodig 
+
+def is_voxel_visible_in_all_cameras(voxel, lookup_tables, foreground_images):
+    for cam_no in range(4):
+        projected_point = lookup_tables[cam_no].get(voxel, None)
+        if projected_point is None:
+            return False  # Voxel not in lookup table
+        
+        x, y = int(projected_point[0]), int(projected_point[1])
+        if not (0 <= x < foreground_images[cam_no].shape[1] and 0 <= y < foreground_images[cam_no].shape[0]):
+            return False  # Projected point out of image bounds
+        
+        if foreground_images[cam_no][y, x] != 255:  # Check if the voxel projects into a foreground pixel
+            return False
+    
+    return True
+"""
+
+def generate_grid(width, depth):
+    # Generates the floor grid locations
+    # You don't need to edit this function
+    data, colors = [], []
+    for x in range(width):
+        for z in range(depth):
+            data.append([x*block_size - width/2, -block_size, z*block_size - depth/2])
+            colors.append([1.0, 1.0, 1.0] if (x+z) % 2 == 0 else [0, 0, 0])
+    return data, colors
+
+
 def set_voxel_positions(width, height, depth):
     # Generates random voxel locations
     # TODO: You need to calculate proper voxel arrays instead of random ones.
@@ -53,11 +79,9 @@ def set_voxel_positions(width, height, depth):
                 
     return data, colors
 
-
 """
 Retrieving the camera positions
 from teams hint 
-
 >> TOEGEVOEGD: *3 want anders te veel op de grid. Nu lijkt het ok?
 """
 def get_cam_positions():
