@@ -169,21 +169,17 @@ def background_subtraction(base_path='data'):
             diff_v = cv2.absdiff(frame_v, background_v)
 
             # Threshold > per channel 
-            #thresh = 30  # SINGLE FRAME
-            # Apply thresholding for each channel
-            thresh_h = 40  
-            thresh_s = 40  
-            thresh_v = 50 
-
-            # Thresholding for difference for foreground mask >> per HSV
+            # Apply thresholding for each channel : the otsu finds the optimal threshold value 
             # kijken of threshold werklt of misschien adaptive ? threshold VS adaptiveThreshold
-            _, fg_mask_h = cv2.threshold(diff_h, thresh_h, 255, cv2.THRESH_BINARY)
-            _, fg_mask_s = cv2.threshold(diff_s, thresh_s, 255, cv2.THRESH_BINARY)
-            _, fg_mask_v = cv2.threshold(diff_v, thresh_v, 255, cv2.THRESH_BINARY)
+            _, fg_mask_h = cv2.threshold(diff_h, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU) # + cv.THRESH_OTSU >> lijkt niet beter
+            _, fg_mask_s = cv2.threshold(diff_s, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            _, fg_mask_v = cv2.threshold(diff_v, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
             # Combine channels: bitwise_and en bitwise_or
             fg_mask_combined = cv2.bitwise_or(fg_mask_h, fg_mask_s)
             fg_mask_combined = cv2.bitwise_or(fg_mask_combined, fg_mask_v)
+            #print(fg_mask_h)
+            print(fg_mask_combined)
 
 
             ### POST DETECTION 
