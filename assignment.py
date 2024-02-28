@@ -13,24 +13,6 @@ def get_calib_data(filename):
         calib_data = pickle.load(f)
     return calib_data
 
-#xx = get_calib_data('data/cam1/calibration_data_camera1.pkl')
-#print(xx)
- 
-def init_cam_params(cam_no):
-    # Load the calibration data from a pickle file
-    with open(f'data/cam{cam_no}/calibration_data_camera{cam_no}.pkl', 'rb') as f:
-        calibration_data = pickle.load(f)
-
-    # Extract the intrinsic and extrinsic parameters
-    mtx, dist = calibration_data['intrinsics']
-    rvec, tvec = calibration_data['extrinsics']
-
-    # Load the foreground image
-    fg = cv2.imread(f'data/cam{cam_no}/foreground_image.jpg')
-    return mtx, dist, rvec, tvec, fg
-
-
-
 def generate_grid(width, depth):
     # Generates the floor grid locations
     # You don't need to edit this function
