@@ -61,20 +61,19 @@ def get_cam_rotation_matrices():
         rvec = calib_data['extrinsics'][0]  # rotation 
         rotation_matrix_cv, _ = cv2.Rodrigues(rvec)
 
-        # Adjust the order of axes to match the visualization's coordinate system, if needed.
-        # Here, we're swapping the y and z axes based on the specific visualization requirements.
+        # swapping the y and z 
         rotation_matrix_adjusted = rotation_matrix_cv[:, [0, 2, 1]]
 
         # Initialize a 4x4 identity matrix for the final rotation matrix.
         rot_matrix = np.eye(4)
         
-        # Apply additional rotation to align the camera's view with the visualization's coordinate system.
+        # Apply additional rotation >> align with cam view
         additional_rotation = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
         rot_matrix[:3, :3] = np.dot(rotation_matrix_adjusted, additional_rotation)
         
-        # Convert the numpy 4x4 matrix to a GLM matrix for use in graphics applications.
+        # Convert the numpy 4x4 matrix to a GLM matrix for use in graphic
         cam_rotation_glm = glm.mat4(*rot_matrix.flatten())
-        # Append the GLM rotation matrix to the list of camera rotations.
+        
         cam_rotations.append(cam_rotation_glm)
 
     return cam_rotations
