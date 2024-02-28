@@ -1,24 +1,8 @@
-"""
-TO DO / CHECKEN:
-* background in color or gray?
 
-"""
 import cv2
 import numpy as np
 import os
 
-"""
-Tips:
-* Background subtraction
-1. OpenCV has some methods that can "automatically" learn the background, and can provide the background without having to set thresholds. 
-Check out the available functions.
-2. for the quality of the background subtraction, 
-I will mainly be looking at the presence of holes in the foreground (apart from the shape in the t-shirt that we might ignore, 
-there these should not be there) and whether the legs of the chair are not "glued" together with the legs of the person.
-3. it's better to have a bit more foreground pixels than to have foreground pixels that are missing. 
-Everytime a foreground pixel is missing, it typically leads to a how line of voxels missing. 
-See also Voxel reconstruction point 2 below.
-"""
 
 
 """
@@ -208,66 +192,3 @@ def background_subtraction(base_path='data'):
 background_subtraction('data')
 
 
-"""
-Hieronder is background sub for a single frame
-Dus niet voor de grames gesplit in H S V
-"""
-def background_subtraction_OUD(base_path='data'): # (backgroun_model, base_path?)
-    camera_dirs = ['cam1', 'cam2', 'cam3', 'cam4']  # Camera folders
-
-    for cam_dir in camera_dirs:
-        # backgroundGMM_ of background_ (afhankelijk of we de GMM of average background image gebruikine. Heb nog weinig vershcil gezien)
-        background_path = os.path.join(base_path, cam_dir, f'background_images/backgroundGMM_{cam_dir}.jpg') # eerst background_image voor de background images per camera.
-        video_path = os.path.join(base_path, cam_dir, 'video.avi')
-
-        # Load the background image
-        background_img = cv2.imread(background_path)
-        if background_img is None:
-            print(f"Failed to load background image for {cam_dir}")
-            continue
-
-        # Convert  background im to HSV
-        background_hsv = cv2.cvtColor(background_img, cv2.COLOR_BGR2HSV)
-
-        # Open video
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print(f"Failed to open video for {cam_dir}")
-            continue
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            #  current frame to HSV
-            frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-            # abs difference between current frame & background
-            diff = cv2.absdiff(frame_hsv, background_hsv)
-
-            """
-            threshold aanpassen voor meer accurate background subt
-            >> methode voor?
-            """
-
-            # Apply thresholding to identify foreground
-            thresh = 30  # 
-
-            _, fg_mask = cv2.threshold(diff, thresh, 255, cv2.THRESH_BINARY)
-
-            # Optionally >> apply morphological operations to clean up the foreground mask
-            # moet nog ff gefinetuned worden 
-            kernel = np.ones((3,3), np.uint8)
-            fg_mask = cv2.erode(fg_mask, kernel, iterations=1)
-            fg_mask = cv2.dilate(fg_mask, kernel, iterations=1)
-
-            # Display the foreground mask
-            cv2.imshow(f'Foreground for {cam_dir}', fg_mask)
-            if cv2.waitKey(25) & 0xFF == ord('q'):
-                break
-
-        cap.release()
-    cv2.destroyAllWindows()
-
-#background_subtraction_OUD('data')
