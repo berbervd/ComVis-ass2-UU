@@ -6,9 +6,7 @@ import cv2
 from tqdm import trange
 from tqdm import tqdm
 
-block_size = 1.0 
-
-cols = [0, 0, 0, 0]
+block_size = 1.0  
 
 def get_calib_data(filename):
     with open(filename, 'rb') as f:
@@ -31,29 +29,7 @@ def init_cam_params(cam_no):
     fg = cv2.imread(f'data/cam{cam_no}/foreground_image.jpg')
     return mtx, dist, rvec, tvec, fg
 
-def load_foreground_image(cam_no):
-    fg_path = f'data/cam{cam_no}/foreground_image.jpg'
-    fg_image = cv2.imread(fg_path, cv2.IMREAD_GRAYSCALE)
-    return fg_image
 
-"""
-zoiet snodig 
-
-def is_voxel_visible_in_all_cameras(voxel, lookup_tables, foreground_images):
-    for cam_no in range(4):
-        projected_point = lookup_tables[cam_no].get(voxel, None)
-        if projected_point is None:
-            return False  # Voxel not in lookup table
-        
-        x, y = int(projected_point[0]), int(projected_point[1])
-        if not (0 <= x < foreground_images[cam_no].shape[1] and 0 <= y < foreground_images[cam_no].shape[0]):
-            return False  # Projected point out of image bounds
-        
-        if foreground_images[cam_no][y, x] != 255:  # Check if the voxel projects into a foreground pixel
-            return False
-    
-    return True
-"""
 
 def generate_grid(width, depth):
     # Generates the floor grid locations
@@ -67,15 +43,10 @@ def generate_grid(width, depth):
 
 
 def set_voxel_positions(width, height, depth):
-    # Generates random voxel locations
-    # TODO: You need to calculate proper voxel arrays instead of random ones.
-    # DONE: heb de if random weggehaald 
-    data, colors = [], []
-    for x in range(width):
-        for y in range(height):
-            for z in range(depth):
-                data.append([x*block_size - width/4, y*block_size, z*block_size - depth/4])
-                colors.append([x / width, z / depth, y / height])
+
+    with open('data/voxel_model.pkl', 'rb') as file:
+        data = pickle.load(file)
+        colors = [i for i in range(len(data))]
                 
     return data, colors
 
@@ -100,27 +71,28 @@ def get_cam_positions():
     return cam_positions, [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
 
-"""
-Ik snap niet of dit goed is 
-    # Generates dummy camera rotation matrices, looking down 45 degrees towards the center of the room
-    # TODO: You need to input the estimated camera rotation matrices (4x4) of the 4 cameras in the world coordinates.
-"""
 def get_cam_rotation_matrices():
-    cam_rotations = []
-    for i_camera in range(1, 5):   
-        calib_data = get_calib_data(f'data/cam{i_camera}/calibration_data_camera{i_camera}.pkl')
-        rvec = calib_data['extrinsics'][0]  # Rotation 
-        
-        # Convert rotation vector to rotation matrix
-        rotation_matrix_cv, _ = cv2.Rodrigues(rvec)
-        
-        # Convert the numpy 3x3 rotation matrix to a format suitable for your application, e.g., glm for OpenGL
-        rotation_matrix_glm = glm.mat4(1)  # Initialize a 4x4 identity matrix
-        for i in range(3):  # Copy the 3x3 rotation matrix to the 4x4 matrix
-            for j in range(3):
-                rotation_matrix_glm[i][j] = rotation_matrix_cv[i, j]
-        
-        cam_rotations.append(rotation_matrix_glm)
-        
-    return cam_rotations
 
+    cam_rotations = []  
+    for i_camera in range(1, 5): 
+        calib_data = get_calib_data(f'data/cam{i_camera}/calibration_data_camera{i_camera}.pkl')
+        rvec = calib_data['extrinsics'][0]  # rotation 
+        rotation_matrix_cv, _ = cv2.Rodrigues(rvec)
+
+        # Adjust the order of axes to match the visualization's coordinate system, if needed.
+        # Here, we're swapping the y and z axes based on the specific visualization requirements.
+        rotation_matrix_adjusted = rotation_matrix_cv[:, [0, 2, 1]]
+
+        # Initialize a 4x4 identity matrix for the final rotation matrix.
+        rot_matrix = np.eye(4)
+        
+        # Apply additional rotation to align the camera's view with the visualization's coordinate system.
+        additional_rotation = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
+        rot_matrix[:3, :3] = np.dot(rotation_matrix_adjusted, additional_rotation)
+        
+        # Convert the numpy 4x4 matrix to a GLM matrix for use in graphics applications.
+        cam_rotation_glm = glm.mat4(*rot_matrix.flatten())
+        # Append the GLM rotation matrix to the list of camera rotations.
+        cam_rotations.append(cam_rotation_glm)
+
+    return cam_rotations
